@@ -4,16 +4,26 @@ import matplotlib.pyplot as plt
 EPSILON_0 = 1.0
 MU_0 = 1.0
 
+class Mesh():
+    def __init__(self, p_i, p_f, dx):
+        self.dx = dx
+        self.p_i = p_i
+        self.p_f = p_f
+
+        self.xE = np.linspace(p_i, p_f, num = int(1 + (p_f-p_i)/dx))
+        self.xH = (self.xE[1:] + self.xE[:-1]) / 2.0
+
 class FDTD1D():
-    def __init__(self, xE, boundary, relative_epsilon_vector=None):
-        self.xE = xE
-        self.xH = (xE[1:] + xE[:-1]) / 2.0
+    def __init__(self, mesh, boundary, relative_epsilon_vector=None):
+        self.mesh = mesh
+        self.xE = self.mesh.xE
+        self.xH = self.mesh.xH
 
 
         self.E = np.zeros(self.xE.shape)
         self.H = np.zeros(self.xH.shape)
 
-        self.dx = xE[1] - xE[0]
+        self.dx = self.mesh.dx
         self.dt = 1.0 * self.dx
 
         self.sources = []
@@ -108,11 +118,11 @@ class Source():
 
 
 def test_pec():
-    x = np.linspace(-0.5, 0.5, num=101)
-    fdtd = FDTD1D(x, "pec")
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "pec")
 
     spread = 0.1
-    initialE = np.exp( - (x/spread)**2/2)
+    initialE = np.exp( - (mesh.xE/spread)**2/2)
 
     fdtd.setE(initialE)
     fdtd.run_until(1.0)
