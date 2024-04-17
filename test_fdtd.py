@@ -60,6 +60,8 @@ class FDTD1D():
         c = self.dt/self.dx
         c_eps = np.ones(self.epsilon_r.size)
         c_eps[:] = self.dt/self.dx / self.epsilon_r[:]
+        E_aux_izq = E[1]
+        E_aux_dch= E[-2]
 
         E[1:-1] += - c_eps[1:-1] * (H[1:] - H[:-1])
         for source in self.sources:
@@ -131,11 +133,11 @@ def test_pec():
     assert np.isclose(R[0,1], 1.0)
 
 def test_pmc():
-    x = np.linspace(-0.5, 0.5, num=101)
-    fdtd = FDTD1D(x, "pmc")
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "pmc")
 
     spread = 0.1
-    initialE = np.exp( - (x/spread)**2/2)
+    initialE = np.exp( - (mesh.xE/spread)**2/2)
 
     fdtd.setE(initialE)
     fdtd.run_until(1.0)
@@ -144,11 +146,11 @@ def test_pmc():
     assert np.isclose(R[0,1], 1.0)
 
 def test_period():
-    x = np.linspace(-0.5, 0.5, num=101)
-    fdtd = FDTD1D(x, "period")
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "period")
 
     spread = 0.1
-    initialE = np.exp( - ((x-0.1)/spread)**2/2)
+    initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
     initialH = np.zeros(fdtd.H.shape)
 
 
@@ -164,15 +166,15 @@ def test_period():
 
 
 def test_pec_dielectric():
-    x = np.linspace(-0.5, 0.5, num=101)
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
     epsilon_r = 4
-    epsilon_vector = epsilon_r*np.ones(x.size)
+    epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
 
-    fdtd = FDTD1D(x, "pec", epsilon_vector)
+    fdtd = FDTD1D(mesh, "pec", epsilon_vector)
 
     spread = 0.1
-    initialE = np.exp( - (x/spread)**2/2)
+    initialE = np.exp( - (mesh.xE/spread)**2/2)
 
     fdtd.setE(initialE)
     fdtd.run_until(time)
@@ -181,15 +183,15 @@ def test_pec_dielectric():
     assert np.isclose(R[0,1], 1.0)
 
 def test_period_dielectric():
-    x = np.linspace(-0.5, 0.5, num=101)
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
     epsilon_r = 4
-    epsilon_vector = epsilon_r*np.ones(x.size)
+    epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
     
-    fdtd = FDTD1D(x, "period", epsilon_vector)
+    fdtd = FDTD1D(mesh, "period", epsilon_vector)
 
     spread = 0.1
-    initialE = np.exp( - ((x-0.1)/spread)**2/2)
+    initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
     initialH = np.zeros(fdtd.H.shape)
 
 
@@ -204,11 +206,11 @@ def test_period_dielectric():
     assert np.allclose(fdtd.H, initialH, atol=1.e-2)
 
 def test_mur():
-    x = np.linspace(-0.5, 0.5, num=101)
-    fdtd = FDTD1D(x, "mur")
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "mur")
 
     spread = 0.1
-    initialE = np.exp( - (x/spread)**2/2)
+    initialE = np.exp( - (mesh.xE/spread)**2/2)
 
     fdtd.setE(initialE)
     fdtd.run_until(1.1)
@@ -220,11 +222,11 @@ def test_error():
     deltax = np.zeros(5)
     for i in range(5):
         num = 10**(i+1) +1
-        x = np.linspace(-0.5, 0.5, num)
+        mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 1.000/(num))
         deltax[i] = 1/num
-        fdtd = FDTD1D(x, "pec")
+        fdtd = FDTD1D(mesh, "pec")
         spread = 0.1
-        initialE = np.exp( - ((x-0.1)/spread)**2/2)
+        initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
         
         fdtd.setE(initialE)
         fdtd.step()
@@ -243,11 +245,11 @@ def test_error():
         (np.log10(deltax[-1]) - np.log10(deltax[0]) )
 
 
-    assert np.isclose( slope , 2, rtol=1.e-1)
+    assert np.isclose( slope , 2, atol=0.16)
                                 
 def test_illumination():
-    x = np.linspace(-0.5, 0.5, num=101)
-    fdtd = FDTD1D(x, "pec")
+    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "pec")
 
     fdtd.addSource(Source.gaussian(20, 0.5, 0.5, 0.1))
     fdtd.addSource(Source.gaussian(70, 1.0, -0.5, 0.1))
