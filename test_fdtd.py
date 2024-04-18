@@ -63,13 +63,14 @@ class FDTD1D():
         E_aux_izq = E[1]
         E_aux_dch= E[-2]
 
+        H += - self.dt/self.dx *(E[1:] - E[:-1])
+        for source in self.sources:
+            H[source.location] += source.function(self.t + self.dt/2)
+
         E[1:-1] += - c_eps[1:-1] * (H[1:] - H[:-1])
         for source in self.sources:
             E[source.location] += source.function(self.t)
         self.t += self.dt
-        H += - self.dt/self.dx *(E[1:] - E[:-1])
-        for source in self.sources:
-            H[source.location] += source.function(self.t)
 
         if self.boundary == "pec":
             E[0] = 0.0
@@ -93,7 +94,7 @@ class FDTD1D():
         while (self.t <= finalTime):
             if False:    
                 plt.plot(self.xE, self.E, '.-')
-                plt.plot(self.xH, self.H, '.-')
+                #plt.plot(self.xH, self.H, '.-')
                 plt.ylim(-1.1, 1.1)
                 plt.title(self.t)
                 plt.grid(which='both')
@@ -245,7 +246,7 @@ def test_error():
         (np.log10(deltax[-1]) - np.log10(deltax[0]) )
 
 
-    assert np.isclose( slope , 2, atol=0.16)
+    assert np.isclose( slope , 2, atol=0.13)
                                 
 def test_illumination():
     mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
