@@ -5,12 +5,25 @@ EPSILON_0 = 1.0
 MU_0 = 1.0
 
 class Mesh():
-    def __init__(self, p_i, p_f, dx):
+    def __init__(self, initial_position, final_position, dx, sub_dx = None, refined_initial_index = None, refined_final_index = None):
         self.dx = dx
-        self.p_i = p_i
-        self.p_f = p_f
+        self.p_i = initial_position
+        self.p_f = final_position
+        self.sub_dx = sub_dx
 
-        self.xE = np.linspace(p_i, p_f, num = int(1 + (p_f-p_i)/dx))
+        if type(refined_final_index) is not int or type(refined_initial_index) is not int:
+            raise ValueError("Please, index are numbers, not other things -_-")
+
+        if sub_dx is None:
+            self.xE = np.linspace(self.p_i, self.p_f, num = int(1 + (self.p_f-self.p_i)/dx))
+        elif (refined_final_index is not None) and (refined_initial_index is not None):
+            t1 = np.linspace(self.p_i, self.p_i + self.dx * (refined_initial_index-1), num = refined_initial_index)
+            t3 = np.linspace(self.p_i + self.dx * (refined_final_index+1), self.p_f, num = int((self.p_f-self.p_i)/dx-refined_final_index))
+            
+            self.xE = np.hstack((t1, np.linspace(t1[-1]+dx, t3[0]-dx, num = int(1+(refined_final_index-refined_initial_index)*dx / sub_dx)),t3))
+        else:
+            raise ValueError("Invalid inputs. Please, think better your decisions :/")
+        
         self.xH = (self.xE[1:] + self.xE[:-1]) / 2.0
 
 class FDTD1D():
@@ -121,7 +134,7 @@ class Source():
 
 
 def test_pec():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     fdtd = FDTD1D(mesh, "pec")
 
     spread = 0.1
@@ -134,7 +147,7 @@ def test_pec():
     assert np.isclose(R[0,1], 1.0)
 
 def test_pmc():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     fdtd = FDTD1D(mesh, "pmc")
 
     spread = 0.1
@@ -147,7 +160,7 @@ def test_pmc():
     assert np.isclose(R[0,1], 1.0)
 
 def test_period():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     fdtd = FDTD1D(mesh, "period")
 
     spread = 0.1
@@ -167,7 +180,7 @@ def test_period():
 
 
 def test_pec_dielectric():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     epsilon_r = 4
     epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
@@ -184,7 +197,7 @@ def test_pec_dielectric():
     assert np.isclose(R[0,1], 1.0)
 
 def test_period_dielectric():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     epsilon_r = 4
     epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
@@ -207,7 +220,7 @@ def test_period_dielectric():
     assert np.allclose(fdtd.H, initialH, atol=1.e-2)
 
 def test_mur():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     fdtd = FDTD1D(mesh, "mur")
 
     spread = 0.1
@@ -223,7 +236,7 @@ def test_error():
     deltax = np.zeros(5)
     for i in range(5):
         num = 10**(i+1) +1
-        mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 1.000/(num))
+        mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 1.000/(num))
         deltax[i] = 1/num
         fdtd = FDTD1D(mesh, "pec")
         spread = 0.1
@@ -249,7 +262,7 @@ def test_error():
     assert np.isclose( slope , 2, atol=0.13)
                                 
 def test_illumination():
-    mesh = Mesh(p_i = -0.5, p_f = 0.5, dx = 0.01)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
     fdtd = FDTD1D(mesh, "pec")
 
     fdtd.addSource(Source.gaussian(20, 0.5, 0.5, 0.1))
@@ -260,3 +273,9 @@ def test_illumination():
     assert np.allclose(fdtd.getE()[71:], 0.0, atol = 1e-2)
     fdtd.run_until(3.0)
     assert np.allclose(fdtd.getE(), 0.0, atol = 1e-2)
+
+def test_visual_subgriding_mesh():
+    mesh = Mesh(initial_position= -5, final_position = 5, dx = 1, sub_dx = 0.5, refined_initial_index = 4, refined_final_index = 8)
+    plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
+    plt.grid()
+    plt.show()
