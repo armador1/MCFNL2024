@@ -10,34 +10,38 @@ class Mesh():
         self.p_i = initial_position
         self.p_f = final_position
         self.sub_dx = sub_dx
+        self.refined_initial_index = refined_initial_index
+        self.refined_final_index = refined_final_index
 
         if type(refined_final_index) is not int or type(refined_initial_index) is not int:
             raise ValueError("Please, index are numbers, not other things -_-")
 
         if sub_dx is None:
             self.xE = np.linspace(self.p_i, self.p_f, num = int(1 + (self.p_f-self.p_i)/dx))
+            #Arreglar que los indices no se pasen :)
         elif (refined_final_index is not None) and (refined_initial_index is not None):
             t1 = np.linspace(self.p_i, self.p_i + self.dx * (refined_initial_index-1), num = refined_initial_index)
             t3 = np.linspace(self.p_i + self.dx * (refined_final_index+1), self.p_f, num = int((self.p_f-self.p_i)/dx-refined_final_index))
             
             self.xE = np.hstack((t1, np.linspace(t1[-1]+dx, t3[0]-dx, num = int(1+(refined_final_index-refined_initial_index)*dx / sub_dx)),t3))
         else:
-            raise ValueError("Invalid inputs. Please, think better your decisions :/")
+            raise ValueError("Invalid inputs. Please, give your decisions a second thought :/")
         
         self.xH = (self.xE[1:] + self.xE[:-1]) / 2.0
 
 class FDTD1D():
-    def __init__(self, mesh, boundary, relative_epsilon_vector=None):
+    def __init__(self, mesh, boundary, CFL , relative_epsilon_vector=None):
         self.mesh = mesh
         self.xE = self.mesh.xE
         self.xH = self.mesh.xH
+        self.CFL = CFL
 
 
         self.E = np.zeros(self.xE.shape)
         self.H = np.zeros(self.xH.shape)
 
         self.dx = self.mesh.dx
-        self.dt = 1.0 * self.dx
+        self.sub_dx= self.mesh.sub_dx
 
         self.sources = []
         self.t = 0.0
@@ -67,7 +71,8 @@ class FDTD1D():
         fieldH = self.H[:]
         return fieldH
 
-    def step(self):
+    def stepDefault(self):
+        self.dt = self.CFL * self.dx
         E = self.E
         H = self.H
         c = self.dt/self.dx
@@ -102,7 +107,89 @@ class FDTD1D():
             E[-1] = E_aux_dch + cte*( E[-2] - E[-1] )
         else:
             raise ValueError("Boundary not defined")
+        
+    
+    def stepGlobal(self):
 
+        self.dt = self.CFL *np.min(self.dx, self.sub_dx)
+        E = self.E
+        H = self.H
+        c = self.dt/self.dx
+        c_eps = np.ones(self.epsilon_r.size)
+        c_eps[:] = self.dt/self.dx / self.epsilon_r[:]
+        E_aux_izq = E[1]
+        E_aux_dch= E[-2]
+
+        H += - self.dt/self.dx *(E[1:] - E[:-1])
+        for source in self.sources:
+            H[source.location] += source.function(self.t + self.dt/2)
+
+        E[1:-1] += - c_eps[1:-1] * (H[1:] - H[:-1])
+        for source in self.sources:
+            E[source.location] += source.function(self.t)
+        self.t += self.dt
+
+        if self.boundary == "pec":
+            E[0] = 0.0
+            E[-1] = 0.0
+        elif self.boundary == "pmc":
+            E[0] = E[0] - c / self.epsilon_r[0] * (2 * H[0])
+            E[-1] = E[-1] + c / self.epsilon_r[-1] * (2 * H[-1])
+        elif self.boundary == "period":
+            E[0] += - c_eps[0] * (H[0] - H[-1])
+            E[-1] = E[0]
+        elif self.boundary == "mur":
+            cte = (c-1.0)/(c + 1.0)
+            # Left 
+            E[0] = E_aux_izq + cte*( E[1] - E[0])
+            # Right
+            E[-1] = E_aux_dch + cte*( E[-2] - E[-1] )
+        else:
+            raise ValueError("Boundary not defined")
+        
+    def stepLocal(self):
+
+        self.dt = self.CFL *self.dx
+        self.sub_dt = self.CFL *self.sub_dx
+        self.refined_initial_index = self.mesh.refined_initial_index
+        self.refined_final_index = self.mesh.refined_final_index
+
+        E = self.E
+        H = self.H
+        c = self.CFL
+        c_eps = np.ones(self.epsilon_r.size)
+        c_eps[:] = c / self.epsilon_r[:]
+        E_aux_izq = E[1]
+        E_aux_dch= E[-2]
+
+        H += - c *(E[1:] - E[:-1])
+        # for source in self.sources:
+        #     H[source.location] += source.function(self.t + self.dt/2)
+
+        E[1:-1] += - c_eps[1:-1] * (H[1:] - H[:-1])
+        # for source in self.sources:
+        #     E[source.location] += source.function(self.t)
+        self.t += self.dt
+
+        if self.boundary == "pec":
+            E[0] = 0.0
+            E[-1] = 0.0
+        elif self.boundary == "pmc":
+            E[0] = E[0] - c / self.epsilon_r[0] * (2 * H[0])
+            E[-1] = E[-1] + c / self.epsilon_r[-1] * (2 * H[-1])
+        elif self.boundary == "period":
+            E[0] += - c_eps[0] * (H[0] - H[-1])
+            E[-1] = E[0]
+        elif self.boundary == "mur":
+            cte = (c-1.0)/(c + 1.0)
+            # Left 
+            E[0] = E_aux_izq + cte*( E[1] - E[0])
+            # Right
+            E[-1] = E_aux_dch + cte*( E[-2] - E[-1] )
+        else:
+            raise ValueError("Boundary not defined")
+
+    
     def run_until(self, finalTime):
         while (self.t <= finalTime):
             if False:    
