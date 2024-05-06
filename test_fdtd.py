@@ -263,8 +263,8 @@ class Source():
 
 
 def test_pec():
-    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
-    fdtd = FDTD1D(mesh, "pec", CFL = 0.5,  SolverType='Local')
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
+    fdtd = FDTD1D(mesh, "pec", CFL = 1.0)
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE)/spread)**2/2)
@@ -273,10 +273,10 @@ def test_pec():
     # plt.show()
 
     fdtd.setE(initialE)
-    fdtd.run_until(10.0)
+    fdtd.run_until(1.0)
 
     R = np.corrcoef(fdtd.getE(), -initialE)
-    # assert np.isclose(R[0,1], 1.0)
+    assert np.isclose(R[0,1], 1.0)
 
 def test_pmc():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
@@ -411,3 +411,36 @@ def test_visual_subgriding_mesh():
     plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
     plt.grid()
     plt.show()
+
+
+def test_pec_subgriding():
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
+    fdtd = FDTD1D(mesh, "pec", CFL = 0.8,  SolverType='Global')
+
+    spread = 0.1
+    initialE = np.exp( - ((mesh.xE)/spread)**2/2)
+
+    # plt.plot(mesh.xE, initialE)
+    # plt.show()
+
+    fdtd.setE(initialE)
+    fdtd.run_until(1.0)
+
+    R = np.corrcoef(fdtd.getE(), -initialE)
+    assert np.isclose(R[0,1], 1.0, atol=1e-3)
+
+def test_period_subgriding():
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
+    fdtd = FDTD1D(mesh, "period", CFL = 0.8,  SolverType='Global')
+
+    spread = 0.1
+    initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
+    initialH = np.zeros(fdtd.H.shape)
+
+
+    fdtd.setE(initialE)
+    fdtd.run_until(1.0)
+
+
+    R_E = np.corrcoef(fdtd.getE(), initialE)
+    assert np.isclose(R_E[0,1], 1.0, rtol=1.e-2)
