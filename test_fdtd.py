@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 EPSILON_0 = 1.0
 MU_0 = 1.0
 
-def interleaved(pt, dt):
-    if pt % dt == 0:
-        return pt
+def interleaved(ct, dt):
+    if ct % dt == 0:
+        return ct
     else:
-        return pt + (dt - (pt % dt))
+        return round(ct - round(dt - (ct % dt), 5), 5) 
 
 
 class Mesh():
@@ -182,9 +182,10 @@ class FDTD1D():
         # H += - self.dt/self.dx *(E[1:] - E[:-1])
         if float(self.t) == 0.0:
             self.Current_Time = self.sub_dt
-            self.Previous_Time = 0
+            self.Previous_Time = 1.0
 
-        if interleaved(self.Previous_Time, self.dt) <= self.Current_Time:
+        self.A = interleaved(self.Current_Time, self.dt)
+        if interleaved(self.Current_Time, self.dt) >= self.Current_Time:
             H[0:self.mesh.refined_initial_index] += - self.dt/self.dx *(E[1:self.mesh.refined_initial_index+1] - E[0:self.mesh.refined_initial_index])
             H[self.mesh.refined_final_index:] += - self.dt/self.dx *(E[self.mesh.refined_final_index+1:] - E[self.mesh.refined_final_index:-1])
 
@@ -194,7 +195,7 @@ class FDTD1D():
         for source in self.sources:
             H[source.location] += source.function(self.t + self.dt/2)
 
-        if interleaved(self.Previous_Time, self.dt) <= self.Current_Time:
+        if interleaved(self.Current_Time, self.dt) >= self.Current_Time:
             E[1:self.mesh.refined_initial_index] += - c_eps[1:self.mesh.refined_initial_index] * (H[1:self.mesh.refined_initial_index] - H[:self.mesh.refined_initial_index-1])
             E[self.mesh.refined_final_index+1:-1] += - c_eps[self.mesh.refined_final_index+1:-1] * (H[self.mesh.refined_final_index+1:] - H[self.mesh.refined_final_index:-1])
         
@@ -204,9 +205,9 @@ class FDTD1D():
 
         # for source in self.sources:
         #     E[source.location] += source.function(self.t)
-        self.Previous_Time = self.t+self.sub_dt
-        self.t += self.sub_dt
-        self.Current_Time = self.Previous_Time + self.sub_dt
+        self.Previous_Time = self.t
+        self.t = round(self.t+self.sub_dt, 5)
+        self.Current_Time = self.t
 
         if self.boundary == "pec":
             E[0] = 0.0
@@ -266,7 +267,11 @@ class Source():
 
 def test_pec():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
+<<<<<<< HEAD
     fdtd = FDTD1D(mesh, "pec", CFL = 0.5,  SolverType='Local')
+=======
+    fdtd = FDTD1D(mesh, "pec", CFL = 0.4000, SolverType='Local')
+>>>>>>> 3dd2f2457054cd6c909e84cfaf25577ad057f88e
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE)/spread)**2/2)
