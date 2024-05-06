@@ -20,9 +20,6 @@ class Mesh():
         self.refined_initial_index = refined_initial_index
         self.refined_final_index = refined_final_index
 
-        if type(refined_final_index) is not int or type(refined_initial_index) is not int:
-            raise ValueError("Please, index are numbers, not other things -_-")
-
         if sub_dx is None:
             self.xE = np.linspace(self.p_i, self.p_f, num = int(1 + (self.p_f-self.p_i)/dx))
             #Arreglar que los indices no se pasen :)
@@ -31,10 +28,10 @@ class Mesh():
             t3 = np.linspace(self.p_i + self.dx * (refined_final_index+1), self.p_f, num = int((self.p_f-self.p_i)/dx-refined_final_index))
 
             self.xE = np.hstack((t1, np.linspace(t1[-1]+dx, t3[0]-dx, num = int(1+(refined_final_index-refined_initial_index)*dx / sub_dx)),t3))
+            self.refined_final_index = np.where(self.xE==(self.p_i + self.dx * (refined_final_index+1)))[0][0]
         else:
             raise ValueError("Invalid inputs. Please, give your decisions a second thought :/")
         
-        self.refined_final_index = np.where(self.xE==(self.p_i + self.dx * (refined_final_index+1)))[0][0]
         self.xH = (self.xE[1:] + self.xE[:-1]) / 2.0
 
 class FDTD1D():
@@ -230,7 +227,7 @@ class FDTD1D():
     
     def run_until(self, finalTime):
         while (self.t <= finalTime):
-            if True:    
+            if False:    
                 plt.plot(self.xE, self.E, '.-')
                 plt.plot(self.xH, self.H, '.-')
                 plt.ylim(-1.1, 1.1)
@@ -283,7 +280,7 @@ def test_pec():
 
 def test_pmc():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
-    fdtd = FDTD1D(mesh, "pmc")
+    fdtd = FDTD1D(mesh, "pmc", CFL=1.0)
 
     spread = 0.1
     initialE = np.exp( - (mesh.xE/spread)**2/2)
@@ -296,7 +293,7 @@ def test_pmc():
 
 def test_period():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
-    fdtd = FDTD1D(mesh, "period")
+    fdtd = FDTD1D(mesh, "period", CFL=1.0)
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
@@ -320,7 +317,7 @@ def test_pec_dielectric():
     epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
 
-    fdtd = FDTD1D(mesh, "pec", epsilon_vector)
+    fdtd = FDTD1D(mesh, "pec", CFL=1.0, relative_epsilon_vector=epsilon_vector)
 
     spread = 0.1
     initialE = np.exp( - (mesh.xE/spread)**2/2)
@@ -337,7 +334,7 @@ def test_period_dielectric():
     epsilon_vector = epsilon_r*np.ones(mesh.xE.size)
     time = np.sqrt(epsilon_r) * np.sqrt(EPSILON_0 * MU_0)
     
-    fdtd = FDTD1D(mesh, "period", epsilon_vector)
+    fdtd = FDTD1D(mesh, "period", CFL=1.0, relative_epsilon_vector=epsilon_vector)
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
@@ -356,7 +353,7 @@ def test_period_dielectric():
 
 def test_mur():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
-    fdtd = FDTD1D(mesh, "mur")
+    fdtd = FDTD1D(mesh, "mur", CFL=1.0)
 
     spread = 0.1
     initialE = np.exp( - (mesh.xE/spread)**2/2)
@@ -373,13 +370,13 @@ def test_error():
         num = 10**(i+1) +1
         mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 1.000/(num))
         deltax[i] = 1/num
-        fdtd = FDTD1D(mesh, "pec")
+        fdtd = FDTD1D(mesh, "pec", CFL=1.0)
         spread = 0.1
         initialE = np.exp( - ((mesh.xE-0.1)/spread)**2/2)
         
         fdtd.setE(initialE)
-        fdtd.step()
-        fdtd.step()
+        fdtd.stepDefault()
+        fdtd.stepDefault()
         N = len(initialE)
         error[i] = np.sqrt(np.sum((fdtd.getE() - initialE)**2)) / N
         
@@ -398,7 +395,7 @@ def test_error():
                                 
 def test_illumination():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01)
-    fdtd = FDTD1D(mesh, "pec")
+    fdtd = FDTD1D(mesh, "pec", CFL=1.0)
 
     fdtd.addSource(Source.gaussian(20, 0.5, 0.5, 0.1))
     fdtd.addSource(Source.gaussian(70, 1.0, -0.5, 0.1))
