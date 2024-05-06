@@ -29,11 +29,12 @@ class Mesh():
         elif (refined_final_index is not None) and (refined_initial_index is not None):
             t1 = np.linspace(self.p_i, self.p_i + self.dx * (refined_initial_index-1), num = refined_initial_index)
             t3 = np.linspace(self.p_i + self.dx * (refined_final_index+1), self.p_f, num = int((self.p_f-self.p_i)/dx-refined_final_index))
-            
+
             self.xE = np.hstack((t1, np.linspace(t1[-1]+dx, t3[0]-dx, num = int(1+(refined_final_index-refined_initial_index)*dx / sub_dx)),t3))
         else:
             raise ValueError("Invalid inputs. Please, give your decisions a second thought :/")
         
+        self.refined_final_index = np.where(self.xE==(self.p_i + self.dx * (refined_final_index+1)))[0][0]
         self.xH = (self.xE[1:] + self.xE[:-1]) / 2.0
 
 class FDTD1D():
@@ -50,7 +51,6 @@ class FDTD1D():
 
         self.dx = self.mesh.dx
         self.sub_dx= self.mesh.sub_dx
-
         self.sources = []
         self.t = 0.0
 
@@ -138,9 +138,10 @@ class FDTD1D():
 
         E[1:self.mesh.refined_initial_index] += - c_eps[1:self.mesh.refined_initial_index] * (H[1:self.mesh.refined_initial_index] - H[:self.mesh.refined_initial_index-1])
         E[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] += - (self.dx / self.sub_dx) * c_eps[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] * (H[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] - H[self.mesh.refined_initial_index:self.mesh.refined_final_index-1])
+        E[self.mesh.refined_initial_index] += - 2 * (self.dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_initial_index] * (H[self.mesh.refined_initial_index] - H[self.mesh.refined_initial_index-1])
+        E[self.mesh.refined_final_index] += - 2 * (self.dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_final_index] * (H[self.mesh.refined_final_index] - H[self.mesh.refined_final_index-1])
         E[self.mesh.refined_final_index+1:-1] += - c_eps[self.mesh.refined_final_index+1:-1] * (H[self.mesh.refined_final_index+1:] - H[self.mesh.refined_final_index:-1])
-        E[self.mesh.refined_initial_index] += -  2 * (self.dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_initial_index] * (H[self.mesh.refined_initial_index] - H[self.mesh.refined_initial_index-1])
-        E[self.mesh.refined_final_index] += -  2 * (self.dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_final_index] * (H[self.mesh.refined_final_index] - H[self.mesh.refined_final_index-1])
+        
 
         for source in self.sources:
             E[source.location] += source.function(self.t)
@@ -187,6 +188,9 @@ class FDTD1D():
             H[0:self.mesh.refined_initial_index] += - self.dt/self.dx *(E[1:self.mesh.refined_initial_index+1] - E[0:self.mesh.refined_initial_index])
             H[self.mesh.refined_final_index:] += - self.dt/self.dx *(E[self.mesh.refined_final_index+1:] - E[self.mesh.refined_final_index:-1])
 
+        H[self.mesh.refined_initial_index:self.mesh.refined_final_index] += - self.sub_dt/self.sub_dx *(E[self.mesh.refined_initial_index+1:self.mesh.refined_final_index+1] - E[self.mesh.refined_initial_index:self.mesh.refined_final_index])
+
+
         for source in self.sources:
             H[source.location] += source.function(self.t + self.dt/2)
 
@@ -194,8 +198,6 @@ class FDTD1D():
             E[1:self.mesh.refined_initial_index] += - c_eps[1:self.mesh.refined_initial_index] * (H[1:self.mesh.refined_initial_index] - H[:self.mesh.refined_initial_index-1])
             E[self.mesh.refined_final_index+1:-1] += - c_eps[self.mesh.refined_final_index+1:-1] * (H[self.mesh.refined_final_index+1:] - H[self.mesh.refined_final_index:-1])
         
-        H[self.mesh.refined_initial_index:self.mesh.refined_final_index] += - self.sub_dt/self.sub_dx *(E[self.mesh.refined_initial_index+1:self.mesh.refined_final_index+1] - E[self.mesh.refined_initial_index:self.mesh.refined_final_index])
-
         E[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] += - c_sub_eps[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] * (H[self.mesh.refined_initial_index+1:self.mesh.refined_final_index] - H[self.mesh.refined_initial_index:self.mesh.refined_final_index-1])
         E[self.mesh.refined_initial_index] += -  2 * (self.sub_dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_initial_index] * (H[self.mesh.refined_initial_index] - H[self.mesh.refined_initial_index-1])
         E[self.mesh.refined_final_index] += -  2 * (self.sub_dt / (self.dx + self.sub_dx))/self.epsilon_r[self.mesh.refined_final_index] * (H[self.mesh.refined_final_index] - H[self.mesh.refined_final_index-1])
@@ -229,7 +231,7 @@ class FDTD1D():
         while (self.t <= finalTime):
             if True:    
                 plt.plot(self.xE, self.E, '.-')
-                #plt.plot(self.xH, self.H, '.-')
+                plt.plot(self.xH, self.H, '.-')
                 plt.ylim(-1.1, 1.1)
                 plt.title(self.t)
                 plt.grid(which='both')
@@ -263,8 +265,8 @@ class Source():
 
 
 def test_pec():
-    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.004, refined_initial_index = 10, refined_final_index = 40)
-    fdtd = FDTD1D(mesh, "pec", CFL = 0.8, SolverType='Local')
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
+    fdtd = FDTD1D(mesh, "pec", CFL = 0.5,  SolverType='Local')
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE)/spread)**2/2)
@@ -407,7 +409,7 @@ def test_illumination():
     assert np.allclose(fdtd.getE(), 0.0, atol = 1e-2)
 
 def test_visual_subgriding_mesh():
-    mesh = Mesh(initial_position= -5, final_position = 5, dx = 1, sub_dx = 0.1, refined_initial_index = 4, refined_final_index = 8)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.004, refined_initial_index = 1, refined_final_index = 99)
     plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
     plt.grid()
     plt.show()
