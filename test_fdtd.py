@@ -267,11 +267,7 @@ class Source():
 
 def test_pec():
     mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
-<<<<<<< HEAD
     fdtd = FDTD1D(mesh, "pec", CFL = 0.5,  SolverType='Local')
-=======
-    fdtd = FDTD1D(mesh, "pec", CFL = 0.4000, SolverType='Local')
->>>>>>> 3dd2f2457054cd6c909e84cfaf25577ad057f88e
 
     spread = 0.1
     initialE = np.exp( - ((mesh.xE)/spread)**2/2)
