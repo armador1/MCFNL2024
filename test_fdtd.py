@@ -410,10 +410,10 @@ def test_visual_subgriding_mesh():
     # plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
     # plt.grid()
     # plt.show()
-    for i in range(9):
+    for i in range(mesh.refined_initial_index - 1):
         assert np.isclose(np.abs(mesh.xE[i]-mesh.xE[i+1]), mesh.dx)
 
-    for i in range(10, 40):
+    for i in range(mesh.refined_initial_index, mesh.refined_final_index-1):
         assert np.isclose(np.abs(mesh.xE[i]-mesh.xE[i+1]), mesh.sub_dx)
         
 
