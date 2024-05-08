@@ -8,7 +8,7 @@ def interleaved(ct, dt):
     if ct % dt == 0:
         return ct
     else:
-        return round(ct - round(dt - (ct % dt), 5), 5) 
+        return ct - round(dt - (ct % dt), 5) 
 
 
 class Mesh():
@@ -22,7 +22,6 @@ class Mesh():
 
         if sub_dx is None:
             self.xE = np.linspace(self.p_i, self.p_f, num = int(1 + (self.p_f-self.p_i)/dx))
-            #Arreglar que los indices no se pasen :)
         elif (refined_final_index is not None) and (refined_initial_index is not None):
             t1 = np.linspace(self.p_i, self.p_i + self.dx * (refined_initial_index-1), num = refined_initial_index)
             t3 = np.linspace(self.p_i + self.dx * (refined_final_index+1), self.p_f, num = int((self.p_f-self.p_i)/dx-refined_final_index))
@@ -203,7 +202,7 @@ class FDTD1D():
         # for source in self.sources:
         #     E[source.location] += source.function(self.t)
         self.Previous_Time = self.t
-        self.t = round(self.t+self.sub_dt, 5)
+        self.t = self.t+self.sub_dt
         self.Current_Time = self.t
 
         if self.boundary == "pec":
@@ -407,14 +406,20 @@ def test_illumination():
     assert np.allclose(fdtd.getE(), 0.0, atol = 1e-2)
 
 def test_visual_subgriding_mesh():
-    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.004, refined_initial_index = 1, refined_final_index = 99)
-    plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
-    plt.grid()
-    plt.show()
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.004, refined_initial_index = 10, refined_final_index = 40)
+    # plt.plot(mesh.xH, np.zeros(mesh.xH.size), 'o-')
+    # plt.grid()
+    # plt.show()
+    for i in range(9):
+        assert np.isclose(np.abs(mesh.xE[i]-mesh.xE[i+1]), mesh.dx)
+
+    for i in range(10, 40):
+        assert np.isclose(np.abs(mesh.xE[i]-mesh.xE[i+1]), mesh.sub_dx)
+        
 
 
 def test_pec_subgriding():
-    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.005, refined_initial_index = 10, refined_final_index = 40)
+    mesh = Mesh(initial_position= -0.5, final_position = 0.5, dx = 0.01, sub_dx = 0.001, refined_initial_index = 10, refined_final_index = 40)
     fdtd = FDTD1D(mesh, "pec", CFL = 0.8,  SolverType='Global')
 
     spread = 0.1
